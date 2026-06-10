@@ -1,0 +1,5 @@
+/* style.css — waybar stylesheet entry point.
+   Active theme is the second @import; theme-switch.sh rewrites it. */
+
+@import url("style/base.css");
+@import url("style/tokyo-night.css");
