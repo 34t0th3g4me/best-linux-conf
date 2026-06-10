@@ -1,10 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Tokyo Night Pro - Power Menu
-# Uses fuzzel as dmenu for power management options
+# Hardened for waybar 2026: set -euo pipefail, fuzzel click-hijacking fix.
+set -euo pipefail
 
 entries="Lock\nLogout\nSuspend\nShutdown\nReboot"
 
-choice=$(printf "%b" "$entries" | fuzzel --dmenu --prompt "power" --width 30 --lines 5 2>/dev/null)
+choice=$(sleep 0.1 && printf "%b" "$entries" | fuzzel --dmenu --prompt "power" --width 30 --lines 5 2>/dev/null) || choice=""
+
+command -v fuzzel >/dev/null 2>&1 || { notify-send "power" "fuzzel not installed" 2>/dev/null || true; exit 1; }
 
 case "$choice" in
     Lock)
