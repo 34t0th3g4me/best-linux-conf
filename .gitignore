@@ -1,0 +1,15 @@
+# Backups
+*.broken
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# Editor
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
