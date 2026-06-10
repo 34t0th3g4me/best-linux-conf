@@ -1,0 +1,78 @@
+/* base.css — layout, typography, shared rules. No colors. */
+
+/* @define-color placeholders — overridden by theme files.
+   Theme files MUST define these. */
+@define-color surface   #000000;
+@define-color surface-2 #111111;
+@define-color accent    #ffffff;
+@define-color text      #ffffff;
+@define-color blue      #ffffff;
+@define-color purple    #ffffff;
+@define-color green     #ffffff;
+@define-color yellow    #ffffff;
+@define-color red       #ffffff;
+@define-color teal      #ffffff;
+@define-color orange    #ffffff;
+
+* {
+    font-family: "JetBrains Mono", "Font Awesome 6 Free", "Noto Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+}
+
+window#waybar {
+    background: transparent;
+    color: @text;
+}
+
+/* Pill-shaped module groups */
+.modules-left,
+.modules-center,
+.modules-right {
+    background: alpha(@surface, 0.75);
+    border: 1px solid alpha(@accent, 0.20);
+    border-radius: 18px;
+    padding: 4px 10px;
+    margin: 0;
+}
+.modules-center { margin: 0 8px; }
+
+/* Default module "chip" look */
+#clock, #cpu, #memory, #temperature, #disk, #battery,
+#network, #wireplumber, #backlight, #tray,
+#idle_inhibitor, #privacy, #power-profiles-daemon,
+#mpris, #niri-workspaces, #niri-window, #niri-language,
+#custom-logo, #custom-updates, #custom-notifications, #custom-power {
+    padding: 0 10px;
+    margin: 0 3px;
+    border-radius: 11px;
+    background: alpha(@surface-2, 0.65);
+}
+
+#custom-power {
+    color: @red;
+    font-size: 14px;
+    padding: 0 12px;
+}
+
+/* Hover for any module that is clickable */
+#clock:hover, #cpu:hover, #memory:hover, #temperature:hover,
+#disk:hover, #battery:hover, #network:hover, #wireplumber:hover,
+#backlight:hover, #tray:hover, #mpris:hover, #niri-workspaces:hover,
+#niri-window:hover, #niri-language:hover, #custom-logo:hover,
+#custom-updates:hover, #custom-notifications:hover,
+#custom-power:hover, #idle_inhibitor:hover, #privacy:hover,
+#power-profiles-daemon:hover {
+    background: alpha(@accent, 0.20);
+    color: @text;
+}
+
+/* Tray icons should not pick up the chip background twice */
+#tray {
+    padding: 0 6px;
+    background: transparent;
+}
+#tray > .passive { -gtk-icon-effect: dim; }
