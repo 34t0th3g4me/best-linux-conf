@@ -187,7 +187,10 @@ fi
 
 # ── 6) Wayland-Applikationen ───────────────────────────────
 info "Installiere Anwendungen …"
-apt_install fuzzel swaybg grim slurp swappy waybar mako-notifier
+apt_install fuzzel swaybg grim slurp waybar mako-notifier
+# swappy ist auf Ubuntu 24.04 nicht paketiert — optional versuchen,
+# tokyo-niri-screenshot hat einen Fallback ohne swappy.
+sudo apt install -y swappy 2>/dev/null || warn "swappy nicht verfügbar – Screenshots werden direkt gespeichert"
 apt_install brightnessctl pipewire-bin wireplumber
 apt_install nautilus keepassxc pavucontrol
 apt_install network-manager network-manager-gnome

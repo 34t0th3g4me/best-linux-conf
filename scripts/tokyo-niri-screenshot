@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Region screenshot. Opens swappy for annotation when installed; otherwise
+# (e.g. Ubuntu 24.04, where swappy is not packaged) saves to ~/Pictures and
+# copies the image to the clipboard.
+set -euo pipefail
+
+geom="$(slurp)" || exit 0
+
+if command -v swappy >/dev/null 2>&1; then
+    grim -g "$geom" - | exec swappy -f -
+fi
+
+dir="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
+mkdir -p "$dir"
+file="$dir/screenshot-$(date +%Y%m%d-%H%M%S).png"
+grim -g "$geom" "$file"
+
+command -v wl-copy >/dev/null 2>&1 && wl-copy <"$file" || true
+command -v notify-send >/dev/null 2>&1 && notify-send "Screenshot" "Saved to $file" || true
