@@ -1,5 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Minimal audio volume control using zenity + wpctl
+# Hardened for waybar 2026: set -euo pipefail, guards.
+set -euo pipefail
+
+command -v wpctl >/dev/null 2>&1 || { notify-send "audio" "wpctl not installed" 2>/dev/null || true; exit 1; }
+command -v zenity >/dev/null 2>&1 || { notify-send "audio" "zenity not installed" 2>/dev/null || true; exit 1; }
 
 sink="@DEFAULT_AUDIO_SINK@"
 current=$(wpctl get-volume "$sink" | awk '{printf "%.0f", $2 * 100}')
