@@ -87,14 +87,10 @@
     "interval": "once",
     "signal": 9,
     "return-type": "json",
-    "format": "{}",
-    "format-icons": {
-      "has-updates": "↑",
-      "none": "✓"
-    },
+    "format": "{text}",
+    "format-icons": ["✓", "↑"],
     "on-click": "sleep 0.1 && ghostty -e bash -c 'sudo dnf upgrade; read'",
-    "on-click-right": "pkill -RTMIN+9 waybar",
-    "tooltip-format": "{tooltip}"
+    "on-click-right": "pkill -RTMIN+9 waybar"
   },
 
   "custom/notifications": {
@@ -104,10 +100,7 @@
     "signal": 10,
     "return-type": "json",
     "format": "{text}",
-    "format-icons": {
-      "dnd": "DND",
-      "none": "🔔"
-    },
+    "format-icons": ["🔔", "DND"],
     "on-click": "sleep 0.1 && /home/efecanaktas/.config/niri/scripts/waybar-notifications.sh dnd-toggle",
     "on-click-right": "sleep 0.1 && makoctl dismiss --all 2>/dev/null || true"
   },
@@ -172,12 +165,12 @@
 
   "temperature": {
     "interval": 10,
-    "hwmon-path": "/sys/class/hwmon",
+    "hwmon-path-abs": "/sys/class/hwmon",
     "input-filename": "temp1_input",
     "critical-threshold": 85,
     "warning-threshold": 70,
     "format": "{temperatureC}°C",
-    "tooltip-format": "{chip} — {temperatureC}°C"
+    "tooltip-format": "{temperatureC}°C"
   },
 
   "disk": {
@@ -207,17 +200,13 @@
     "interval": 2,
     "format": "{volume}%",
     "format-muted": "🔇",
-    "format-icons": {
-      "headphone": "🎧",
-      "default": ["🔈", "🔉", "🔊"]
-    },
+    "format-icons": ["🔈", "🔉", "🔊"],
     "on-click": "sleep 0.1 && /home/efecanaktas/.config/niri/scripts/tokyo-niri-audio",
     "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
     "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
     "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-",
     "scroll-step": 5,
-    "max-volume": 150,
-    "tooltip-format": "{desc}: {volume}%"
+    "max-volume": 150
   },
 
   "network": {
