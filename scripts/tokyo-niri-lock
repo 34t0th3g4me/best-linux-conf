@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# tokyo-niri-lock — themed lock screen for niri.
+# Background priority:
+#   1. ~/.config/tokyo-niri/lock-wallpaper (file or symlink to an image)
+#   2. blurred + dimmed screenshot of each output (grim + imagemagick)
+#   3. solid Tokyo Night background color
+# Uses swaylock (ext-session-lock); triggered directly, by `loginctl
+# lock-session` via swayidle, on idle timeout, and before suspend.
+set -euo pipefail
+
+command -v swaylock >/dev/null 2>&1 || {
+    notify-send -u critical "lock" "swaylock not installed" 2>/dev/null || true
+    exit 1
+}
+
+# Already locked? Don't stack instances (swaylock would fail, but be explicit).
+pgrep -x swaylock >/dev/null 2>&1 && exit 0
+
+LOCK_WALLPAPER="${TOKYO_NIRI_LOCK_WALLPAPER:-$HOME/.config/tokyo-niri/lock-wallpaper}"
+
+# Tokyo Night indicator theme
+THEME_ARGS=(
+    --color 1a1b26
+    --inside-color 1a1b26cc --ring-color 7aa2f7
+    --inside-clear-color 1a1b26cc --ring-clear-color e0af68 --text-clear-color c0caf5
+    --inside-ver-color 1a1b26cc --ring-ver-color 7dcfff --text-ver-color c0caf5
+    --inside-wrong-color 1a1b26cc --ring-wrong-color f7768e --text-wrong-color f7768e
+    --text-color c0caf5 --key-hl-color 9ece6a --bs-hl-color f7768e
+    --line-color 00000000 --separator-color 00000000
+    --indicator-radius 90 --indicator-thickness 8
+    --font "JetBrains Mono"
+    --ignore-empty-password --show-failed-attempts
+)
+
+IMG_ARGS=()
+TMPDIR_LOCK=""
+cleanup() { [ -n "$TMPDIR_LOCK" ] && rm -rf "$TMPDIR_LOCK"; }
+trap cleanup EXIT
+
+blur_tool() {
+    if command -v magick >/dev/null 2>&1; then echo magick
+    elif command -v convert >/dev/null 2>&1; then echo convert
+    else echo ""
+    fi
+}
+
+if [ -f "$LOCK_WALLPAPER" ]; then
+    IMG_ARGS=(-i "$LOCK_WALLPAPER" --scaling fill)
+else
+    BLUR="$(blur_tool)"
+    if command -v grim >/dev/null 2>&1 && command -v niri >/dev/null 2>&1 && [ -n "$BLUR" ]; then
+        TMPDIR_LOCK="$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/tokyo-niri-lock.XXXXXX")"
+        # one blurred screenshot per output so multi-monitor doesn't stretch
+        while IFS= read -r out; do
+            [ -n "$out" ] || continue
+            shot="$TMPDIR_LOCK/$out.png"
+            if grim -o "$out" "$shot" 2>/dev/null; then
+                # downscale -> blur -> upscale is much faster than full-res blur
+                "$BLUR" "$shot" -scale 10% -blur 0x3 -resize 1000% \
+                    -fill black -colorize 35% "$shot" 2>/dev/null || continue
+                IMG_ARGS+=(-i "$out:$shot" --scaling fill)
+            fi
+        done < <(niri msg outputs 2>/dev/null | awk -F'[()]' '/^Output/ {print $2}')
+    fi
+fi
+
+# -f daemonizes after the session is locked, so callers (swayidle
+# before-sleep) don't block past the lock taking effect.
+swaylock -f "${THEME_ARGS[@]}" "${IMG_ARGS[@]}"
+
+# swaylock -f returns immediately; keep the temp screenshots alive until
+# the lock exits, then clean up.
+if [ -n "$TMPDIR_LOCK" ]; then
+    trap - EXIT
+    (
+        while pgrep -x swaylock >/dev/null 2>&1; do sleep 5; done
+        rm -rf "$TMPDIR_LOCK"
+    ) >/dev/null 2>&1 &
+    disown
+fi

@@ -6,6 +6,33 @@ set -euo pipefail
 
 source /etc/os-release 2>/dev/null || source /usr/lib/os-release 2>/dev/null || true
 ID="${ID:-unknown}"
+# Fold derivatives into their family via ID_LIKE
+case " ${ID} ${ID_LIKE:-} " in
+    *" fedora "*|*" rhel "*) ID="fedora" ;;
+    *" arch "*)              ID="arch" ;;
+    *" debian "*|*" ubuntu "*) ID="ubuntu" ;;
+esac
+
+# `upgrade` opens a terminal running the distro's upgrade command
+if [ "${1:-}" = "upgrade" ]; then
+    case "$ID" in
+        fedora) cmd="sudo dnf upgrade" ;;
+        arch)   cmd="sudo pacman -Syu" ;;
+        ubuntu) cmd="sudo apt update && sudo apt upgrade" ;;
+        *)      notify-send "updates" "unknown distro — update manually" 2>/dev/null || true; exit 0 ;;
+    esac
+    for term in "${TERMINAL:-}" ghostty foot kitty alacritty gnome-terminal x-terminal-emulator; do
+        [ -n "$term" ] || continue
+        if command -v "$term" >/dev/null 2>&1; then
+            case "$term" in
+                gnome-terminal) exec "$term" -- bash -c "$cmd; read -rp 'done — press enter'" ;;
+                *)              exec "$term" -e bash -c "$cmd; read -rp 'done — press enter'" ;;
+            esac
+        fi
+    done
+    notify-send "updates" "no terminal emulator found" 2>/dev/null || true
+    exit 0
+fi
 
 count=0
 class="none"

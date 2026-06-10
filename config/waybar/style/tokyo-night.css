@@ -33,6 +33,8 @@
 #network.disconnected { color: @red; }
 #wireplumber      { color: @yellow; }
 #wireplumber.muted      { color: @red; }
+#custom-microphone        { color: @yellow; }
+#custom-microphone.muted  { color: @red; }
 #backlight        { color: @yellow; }
 #battery          { color: @green; }
 #battery.charging      { color: @green; }

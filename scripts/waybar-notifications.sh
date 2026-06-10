@@ -19,7 +19,8 @@ case "${1:-count}" in
 
         # count = total - dismissed
         total=$(makoctl list 2>/dev/null | grep -c '^Notification' || true)
-        dnd=$(makoctl mode 2>/dev/null | grep -q 'dnd: enabled' && echo "yes" || echo "no")
+        # `makoctl mode` prints one active mode per line
+        dnd=$(makoctl mode 2>/dev/null | grep -qx 'dnd' && echo "yes" || echo "no")
 
         if [ "$dnd" = "yes" ]; then
             printf '{"text":"%s","tooltip":"Do Not Disturb on","class":"dnd"}\n' "$total"

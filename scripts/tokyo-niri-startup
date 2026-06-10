@@ -1,9 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
-pkill -x waybar 2>/dev/null || true
-pkill -x mako 2>/dev/null || true
+
+# Make sure D-Bus-activated services (xdg-desktop-portal & friends) see the
+# Wayland session — required for screen sharing to find the compositor.
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    dbus-update-activation-environment --systemd \
+        WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE 2>/dev/null || true
+fi
+
+pkill -x waybar   2>/dev/null || true
+pkill -x mako     2>/dev/null || true
+pkill -x swayidle 2>/dev/null || true
+
 tokyo-niri-wallpaper >/tmp/tokyo-niri-wallpaper.log 2>&1 &
 if command -v mako >/dev/null 2>&1; then mako >/tmp/tokyo-niri-mako.log 2>&1 & fi
 if command -v waybar >/dev/null 2>&1; then waybar -c "$HOME/.config/waybar/config.jsonc" -s "$HOME/.config/waybar/style.css" >/tmp/tokyo-niri-waybar-top.log 2>&1 & fi
 if command -v xwayland-satellite >/dev/null 2>&1; then xwayland-satellite >/tmp/tokyo-niri-xwayland.log 2>&1 & fi
+
+# Idle/lock daemon: lock after 10 min idle, screens off 60 s later,
+# lock on `loginctl lock-session` and before suspend (security: an open
+# session must never survive a suspend unlocked).
+if command -v swayidle >/dev/null 2>&1 && command -v swaylock >/dev/null 2>&1; then
+    swayidle -w \
+        lock 'tokyo-niri-lock' \
+        before-sleep 'tokyo-niri-lock' \
+        timeout 600 'tokyo-niri-lock' \
+        timeout 660 'niri msg action power-off-monitors' \
+        >/tmp/tokyo-niri-swayidle.log 2>&1 &
+fi

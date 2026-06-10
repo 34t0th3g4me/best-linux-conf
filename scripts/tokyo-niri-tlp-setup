@@ -1,24 +1,62 @@
 #!/bin/bash
 # Tokyo Night Pro - TLP Setup Script
-# Run this once to install and configure TLP + sudoers
+# Run this once to install and configure TLP + a narrowly-scoped sudoers
+# rule (cpupower/tlp only) so the profile switcher works without a
+# password prompt. Multi-distro; prefers power-profiles-daemon if present.
 set -euo pipefail
 
-echo "==> Removing conflicting tuned-ppd (provides power-profiles-daemon)..."
-sudo dnf remove -y tuned-ppd 2>/dev/null || true
+. /etc/os-release 2>/dev/null || true
+case " ${ID:-} ${ID_LIKE:-} " in
+    *" fedora "*|*" rhel "*) PM="dnf" ;;
+    *" arch "*)              PM="pacman" ;;
+    *" debian "*|*" ubuntu "*) PM="apt" ;;
+    *) echo "unsupported distro for tlp setup" >&2; exit 1 ;;
+esac
 
-echo "==> Installing TLP..."
-sudo dnf install -y tlp tlp-rdw
+if command -v powerprofilesctl >/dev/null 2>&1; then
+    echo "==> power-profiles-daemon is available — tokyo-niri-tlp-profile"
+    echo "    will use it without sudo. TLP install is optional."
+fi
+
+case "$PM" in
+    dnf)
+        echo "==> Removing conflicting tuned-ppd..."
+        sudo dnf remove -y tuned-ppd 2>/dev/null || true
+        echo "==> Installing TLP..."
+        sudo dnf install -y tlp tlp-rdw
+        ;;
+    pacman)
+        echo "==> Installing TLP..."
+        sudo pacman -S --noconfirm --needed tlp
+        ;;
+    apt)
+        echo "==> Installing TLP..."
+        sudo apt install -y tlp
+        ;;
+esac
 
 echo "==> Enabling TLP..."
 sudo systemctl enable tlp
 sudo systemctl start tlp
 
 echo "==> Configuring sudoers for passwordless CPU/power commands..."
-echo "efecanaktas ALL=(ALL) NOPASSWD: /usr/bin/cpupower, /usr/bin/tlp" | sudo tee /etc/sudoers.d/tokyo-niri-power > /dev/null
-sudo chmod 440 /etc/sudoers.d/tokyo-niri-power
+CURRENT_USER="$(id -un)"
+CPUPOWER="$(command -v cpupower || echo /usr/bin/cpupower)"
+TLP_BIN="$(command -v tlp || echo /usr/sbin/tlp)"
+SUDOERS_TMP="$(mktemp)"
+trap 'rm -f "$SUDOERS_TMP"' EXIT
+printf '%s ALL=(ALL) NOPASSWD: %s, %s\n' "$CURRENT_USER" "$CPUPOWER" "$TLP_BIN" > "$SUDOERS_TMP"
+
+# Validate BEFORE installing — a syntactically broken file in
+# /etc/sudoers.d can break sudo for the whole system.
+if ! sudo visudo -cf "$SUDOERS_TMP"; then
+    echo "error: generated sudoers rule failed validation — not installing" >&2
+    exit 1
+fi
+sudo install -m 440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/tokyo-niri-power
 
 echo "==> Setting balanced profile..."
-~/.local/bin/tokyo-niri-tlp-profile balanced
+"$HOME/.local/bin/tokyo-niri-tlp-profile" balanced
 
 echo "==> Done! TLP installed and configured."
 echo "    Three profiles available: powersave, balanced, performance"

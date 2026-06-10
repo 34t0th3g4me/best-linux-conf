@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# tokyo-niri-audio-menu — GNOME-style quick audio switcher for the bar.
+# Lists output + input devices from wpctl, lets you set the default with
+# one click via fuzzel, plus mute toggles. No pavucontrol needed for the
+# common case (pavucontrol stays one entry away for advanced routing).
+#
+# Usage:
+#   tokyo-niri-audio-menu          interactive fuzzel menu
+#   tokyo-niri-audio-menu list     print parsed devices (for tests/debug)
+set -euo pipefail
+
+command -v wpctl >/dev/null 2>&1 || {
+    notify-send "audio" "wpctl (wireplumber) not installed" 2>/dev/null || true
+    exit 1
+}
+
+# Print devices of one wpctl section as: MARK<TAB>ID<TAB>NAME
+# MARK is '*' for the current default device.
+section_devices() {
+    local section="$1"
+    wpctl status 2>/dev/null | awk -v sec="$section" '
+        # top-level blocks (Audio / Video / Settings) start at column 0 —
+        # only parse inside Audio, or cameras would show up as microphones
+        /^[A-Za-z]/ { aud = /^Audio/ }
+        aud && $0 ~ "─ " sec ":" { insec = 1; next }
+        insec && /─ [A-Z][a-z]+:/ { insec = 0 }
+        insec && aud {
+            line = $0
+            gsub(/[│├└]/, " ", line)
+            mark = (line ~ /\*/) ? "*" : "-"
+            if (match(line, /[0-9]+\./)) {
+                id = substr(line, RSTART, RLENGTH - 1)
+                name = substr(line, RSTART + RLENGTH)
+                sub(/^[ \t]+/, "", name)
+                sub(/[ \t]*\[vol:.*$/, "", name)
+                sub(/[ \t]+$/, "", name)
+                if (name != "") printf "%s\t%s\t%s\n", mark, id, name
+            }
+        }'
+}
+
+if [ "${1:-}" = "list" ]; then
+    echo "== Sinks =="
+    section_devices Sinks
+    echo "== Sources =="
+    section_devices Sources
+    exit 0
+fi
+
+command -v fuzzel >/dev/null 2>&1 || {
+    notify-send "audio" "fuzzel not installed" 2>/dev/null || true
+    exit 1
+}
+
+# Build menu lines and a parallel id lookup keyed by the visible line.
+declare -A ID_FOR
+LINES=""
+
+add_devices() {
+    local section="$1" icon="$2"
+    local mark id name line
+    while IFS=$'\t' read -r mark id name; do
+        [ -n "$id" ] || continue
+        if [ "$mark" = "*" ]; then
+            line="${icon} ● ${name}"
+        else
+            line="${icon} ○ ${name}"
+        fi
+        ID_FOR["$line"]="$id"
+        LINES+="${line}"$'\n'
+    done < <(section_devices "$section")
+}
+
+add_devices Sinks   "🔊"
+add_devices Sources "🎙"
+
+LINES+="🔇 Toggle output mute"$'\n'
+LINES+="🎤 Toggle microphone mute"$'\n'
+LINES+="⚙ Open pavucontrol"
+
+count=$(printf '%s\n' "$LINES" | wc -l)
+[ "$count" -gt 12 ] && count=12
+
+choice=$(printf '%s' "$LINES" | fuzzel --dmenu --prompt "audio " --width 50 --lines "$count" 2>/dev/null) || exit 0
+[ -n "$choice" ] || exit 0
+
+case "$choice" in
+    "🔇 Toggle output mute")
+        wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+    "🎤 Toggle microphone mute")
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+        pkill -RTMIN+11 waybar 2>/dev/null || true ;;
+    "⚙ Open pavucontrol")
+        exec pavucontrol ;;
+    *)
+        id="${ID_FOR[$choice]:-}"
+        if [ -n "$id" ]; then
+            wpctl set-default "$id"
+            name=$(printf '%s' "$choice" | sed 's/^[^ ]* [●○] //')
+            notify-send -t 2000 "Audio" "Default device: ${name}" 2>/dev/null || true
+            pkill -RTMIN+11 waybar 2>/dev/null || true
+        fi ;;
+esac

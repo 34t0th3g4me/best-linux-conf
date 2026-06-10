@@ -39,6 +39,7 @@
     "tray",
     "backlight",
     "wireplumber",
+    "custom/microphone",
     "network",
     "battery",
     "power-profiles-daemon",
@@ -81,28 +82,45 @@
     "on-click-right": "sleep 0.1 && tokyo-niri-dock-app launcher"
   },
 
+  // Scripts are resolved via PATH (~/.local/bin, symlinked by install.sh) —
+  // never hardcode $HOME here, it breaks on every other machine.
   "custom/updates": {
-    "exec": "/home/efecanaktas/.config/niri/scripts/waybar-checkupdates.sh",
+    "exec": "waybar-checkupdates.sh",
     "exec-on-event": true,
     "interval": "once",
     "signal": 9,
     "return-type": "json",
     "format": "{text}",
     "format-icons": ["✓", "↑"],
-    "on-click": "sleep 0.1 && ghostty -e bash -c 'sudo dnf upgrade; read'",
+    "on-click": "sleep 0.1 && waybar-checkupdates.sh upgrade",
     "on-click-right": "pkill -RTMIN+9 waybar"
   },
 
   "custom/notifications": {
-    "exec": "/home/efecanaktas/.config/niri/scripts/waybar-notifications.sh count",
+    "exec": "waybar-notifications.sh count",
     "exec-on-event": true,
     "interval": 30,
     "signal": 10,
     "return-type": "json",
     "format": "{text}",
     "format-icons": ["🔔", "DND"],
-    "on-click": "sleep 0.1 && /home/efecanaktas/.config/niri/scripts/waybar-notifications.sh dnd-toggle",
+    "on-click": "sleep 0.1 && waybar-notifications.sh dnd-toggle",
     "on-click-right": "sleep 0.1 && makoctl dismiss --all 2>/dev/null || true"
+  },
+
+  // GNOME-style quick mic control: click toggles mute, right-click opens
+  // the device switcher, scroll adjusts input volume.
+  "custom/microphone": {
+    "exec": "waybar-microphone.sh",
+    "exec-on-event": true,
+    "interval": 5,
+    "signal": 11,
+    "return-type": "json",
+    "format": "{text}",
+    "on-click": "waybar-microphone.sh toggle",
+    "on-click-right": "sleep 0.1 && tokyo-niri-audio-menu",
+    "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 5%+ && pkill -RTMIN+11 waybar",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 5%- && pkill -RTMIN+11 waybar"
   },
 
   "custom/power": {
@@ -192,16 +210,20 @@
     "format-icons": ["◑", "◐", "◓", "◒", "●"],
     "on-scroll-up": "brightnessctl set 5%+",
     "on-scroll-down": "brightnessctl set 5%-",
-    "on-click": "sleep 0.1 && /home/efecanaktas/.config/niri/scripts/waybar-backlight-slider.sh",
+    "on-click": "sleep 0.1 && waybar-backlight-slider.sh",
     "tooltip-format": "Backlight: {percent}%"
   },
 
+  // Click: GNOME-style device switcher (outputs + inputs, one click to
+  // change the default). Middle-click: volume slider. Right-click: mute.
   "wireplumber": {
     "interval": 2,
     "format": "{volume}%",
     "format-muted": "🔇",
     "format-icons": ["🔈", "🔉", "🔊"],
-    "on-click": "sleep 0.1 && /home/efecanaktas/.config/niri/scripts/tokyo-niri-audio",
+    "tooltip-format": "{node_name} — {volume}%",
+    "on-click": "sleep 0.1 && tokyo-niri-audio-menu",
+    "on-click-middle": "sleep 0.1 && tokyo-niri-audio",
     "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
     "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
     "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-",
@@ -229,7 +251,7 @@
     "format-plugged": "🔌 {capacity}%",
     "format-icons": ["", "", "", "", "", "", "", "", "", "", "▮"],
     "tooltip-format": "{capacity}% • {power}W\n{time}",
-    "on-click": "sleep 0.1 && tokyo-niri-profile-menu"
+    "on-click": "sleep 0.1 && tokyo-niri-tlp-profile menu"
   },
 
   "power-profiles-daemon": {
@@ -241,6 +263,6 @@
       "power-saver": "❄"
     },
     "tooltip-format": "Power profile: {profile}",
-    "on-click": "sleep 0.1 && tokyo-niri-profile-menu"
+    "on-click": "sleep 0.1 && tokyo-niri-tlp-profile menu"
   }
 }

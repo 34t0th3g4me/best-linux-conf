@@ -5,6 +5,28 @@
 PROFILE="${1:-}"
 STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/tokyo-niri-tlp-profile"
 
+# `menu` — fuzzel picker (used by the waybar battery / power-profile click).
+# Prefers power-profiles-daemon (no sudo needed); falls back to the
+# cpupower/tlp path below.
+if [ "$PROFILE" = "menu" ]; then
+    command -v fuzzel >/dev/null 2>&1 || { notify-send "power" "fuzzel not installed" 2>/dev/null || true; exit 1; }
+    choice=$(printf '❄ powersave\n◈ balanced\n⚡ performance' \
+        | fuzzel --dmenu --prompt "profile " --width 30 --lines 3 2>/dev/null) || exit 0
+    choice="${choice#* }"
+    [ -n "$choice" ] || exit 0
+    if command -v powerprofilesctl >/dev/null 2>&1; then
+        case "$choice" in
+            powersave)   powerprofilesctl set power-saver ;;
+            balanced)    powerprofilesctl set balanced ;;
+            performance) powerprofilesctl set performance ;;
+        esac
+        echo "$choice" > "$STATE_FILE"
+        notify-send -t 2000 "Power Profile: $choice" 2>/dev/null || true
+        exit 0
+    fi
+    exec "$0" "$choice"
+fi
+
 if [ -z "$PROFILE" ]; then
     current=$(cat "$STATE_FILE" 2>/dev/null || echo "balanced")
     case "$current" in

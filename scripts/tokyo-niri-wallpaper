@@ -1,8 +1,32 @@
 #!/usr/bin/env bash
+# Set the desktop wallpaper via swaybg. Resolution order:
+#   1. $TOKYO_NIRI_WALLPAPER
+#   2. ~/.config/tokyo-niri/wallpaper (file or symlink)
+#   3. <XDG pictures dir>/wallpaper.jpg|png
+#   4. solid Tokyo Night background color
 set -euo pipefail
-WALLPAPER="/home/efecanaktas/Bilder/wallpaper.jpg"
+
+pictures_dir() {
+    if command -v xdg-user-dir >/dev/null 2>&1; then
+        xdg-user-dir PICTURES
+    else
+        echo "$HOME/Pictures"
+    fi
+}
+
+candidates=(
+    "${TOKYO_NIRI_WALLPAPER:-}"
+    "$HOME/.config/tokyo-niri/wallpaper"
+    "$(pictures_dir)/wallpaper.jpg"
+    "$(pictures_dir)/wallpaper.png"
+)
+
 pkill -x swaybg 2>/dev/null || true
-if [[ -n "$WALLPAPER" && -f "$WALLPAPER" ]]; then
-  exec swaybg -i "$WALLPAPER" -m fill
-fi
+
+for w in "${candidates[@]}"; do
+    if [[ -n "$w" && -f "$w" ]]; then
+        exec swaybg -i "$w" -m fill
+    fi
+done
+
 exec swaybg -c "#1a1b26"

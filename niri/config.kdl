@@ -129,6 +129,10 @@ binds {
         close-window
     }
 
+    Mod+L {
+        spawn "tokyo-niri-lock"
+    }
+
     Mod+Left {
         focus-column-left
     }
@@ -234,7 +238,7 @@ binds {
     }
 
     Print {
-        spawn "sh" "-c" "grim -g \"$(slurp)\" - | swappy -f -"
+        spawn "tokyo-niri-screenshot"
     }
 
     XF86AudioRaiseVolume {

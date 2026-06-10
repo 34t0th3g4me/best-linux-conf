@@ -45,7 +45,8 @@ window#waybar {
 #network, #wireplumber, #backlight, #tray,
 #idle_inhibitor, #privacy, #power-profiles-daemon,
 #mpris, #niri-workspaces, #niri-window, #niri-language,
-#custom-logo, #custom-updates, #custom-notifications, #custom-power {
+#custom-logo, #custom-updates, #custom-notifications, #custom-power,
+#custom-microphone {
     padding: 0 10px;
     margin: 0 3px;
     border-radius: 11px;
@@ -65,7 +66,7 @@ window#waybar {
 #niri-window:hover, #niri-language:hover, #custom-logo:hover,
 #custom-updates:hover, #custom-notifications:hover,
 #custom-power:hover, #idle_inhibitor:hover, #privacy:hover,
-#power-profiles-daemon:hover {
+#power-profiles-daemon:hover, #custom-microphone:hover {
     background: alpha(@accent, 0.20);
     color: @text;
 }

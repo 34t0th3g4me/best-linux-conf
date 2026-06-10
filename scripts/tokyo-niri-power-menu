@@ -3,15 +3,21 @@
 # Hardened for waybar 2026: set -euo pipefail, fuzzel click-hijacking fix.
 set -euo pipefail
 
+command -v fuzzel >/dev/null 2>&1 || { notify-send "power" "fuzzel not installed" 2>/dev/null || true; exit 1; }
+
 entries="Lock\nLogout\nSuspend\nShutdown\nReboot"
 
 choice=$(sleep 0.1 && printf "%b" "$entries" | fuzzel --dmenu --prompt "power" --width 30 --lines 5 2>/dev/null) || choice=""
 
-command -v fuzzel >/dev/null 2>&1 || { notify-send "power" "fuzzel not installed" 2>/dev/null || true; exit 1; }
-
 case "$choice" in
     Lock)
-        loginctl lock-session 2>/dev/null || true
+        # lock-session is handled by swayidle's lock hook; fall back to
+        # locking directly if no idle daemon is running.
+        if pgrep -x swayidle >/dev/null 2>&1; then
+            loginctl lock-session 2>/dev/null || tokyo-niri-lock
+        else
+            tokyo-niri-lock
+        fi
         ;;
     Logout)
         niri msg action quit 2>/dev/null || true
