@@ -1,0 +1,257 @@
+// config.jsonc — waybar configuration.
+// Modules left -> center -> right. JSONC is supported (waybar uses jsoncpp).
+
+{
+  // === BAR ===
+  "layer": "top",
+  "position": "top",
+  "height": 36,
+  "spacing": 8,
+  "margin-top": 8,
+  "margin-left": 14,
+  "margin-right": 14,
+  "exclusive": true,
+  "name": "top",
+  "mode": "dock",
+  "reload_style_on_change": true,
+  "restart_interval": 0,
+  "on-sigusr1": "reload",
+  "on-sigusr2": "reload",
+
+  // === MODULES ===
+  "modules-left": [
+    "niri/workspaces",
+    "niri/window",
+    "custom/logo",
+    "clock",
+    "mpris"
+  ],
+  "modules-center": [
+    "idle_inhibitor",
+    "privacy"
+  ],
+  "modules-right": [
+    "custom/updates",
+    "cpu",
+    "memory",
+    "temperature",
+    "disk",
+    "tray",
+    "backlight",
+    "wireplumber",
+    "network",
+    "battery",
+    "power-profiles-daemon",
+    "custom/notifications",
+    "custom/power"
+  ],
+
+  // === COMPOSITOR ===
+  "niri/workspaces": {
+    "disable-scroll": true,
+    "all-outputs": true,
+    "warp-on-scroll": false,
+    "format": "{name}",
+    "format-icons": {
+      "focused": "●",
+      "active": "◉",
+      "urgent": "!",
+      "default": "○"
+    },
+    "on-click": "sleep 0.1 && niri msg action focus-workspace {}",
+    "on-click-right": "sleep 0.1 && niri msg action toggle-overview",
+    "persistent-workspaces": true
+  },
+
+  "niri/window": {
+    "format": "{title}",
+    "max-length": 60,
+    "rewrite": {
+      "(.*) — Mozilla Firefox": "$1",
+      "(.*) — Visual Studio Code": "$1"
+    },
+    "on-click": "sleep 0.1 && niri msg action focus-column"
+  },
+
+  // === CUSTOM ===
+  "custom/logo": {
+    "format": "◆",
+    "tooltip": "Launcher (Super+Space)",
+    "on-click": "sleep 0.1 && fuzzel",
+    "on-click-right": "sleep 0.1 && tokyo-niri-dock-app launcher"
+  },
+
+  "custom/updates": {
+    "exec": "/home/efecanaktas/.config/niri/scripts/waybar-checkupdates.sh",
+    "exec-on-event": true,
+    "interval": "once",
+    "signal": 9,
+    "return-type": "json",
+    "format": "{}",
+    "format-icons": {
+      "has-updates": "↑",
+      "none": "✓"
+    },
+    "on-click": "sleep 0.1 && ghostty -e bash -c 'sudo dnf upgrade; read'",
+    "on-click-right": "pkill -RTMIN+9 waybar",
+    "tooltip-format": "{tooltip}"
+  },
+
+  "custom/notifications": {
+    "exec": "/home/efecanaktas/.config/niri/scripts/waybar-notifications.sh count",
+    "exec-on-event": true,
+    "interval": 30,
+    "signal": 10,
+    "return-type": "json",
+    "format": "{text}",
+    "format-icons": {
+      "dnd": "DND",
+      "none": "🔔"
+    },
+    "on-click": "sleep 0.1 && /home/efecanaktas/.config/niri/scripts/waybar-notifications.sh dnd-toggle",
+    "on-click-right": "sleep 0.1 && makoctl dismiss --all 2>/dev/null || true"
+  },
+
+  "custom/power": {
+    "format": "⏻",
+    "tooltip": "Click: power menu",
+    "on-click": "sleep 0.1 && tokyo-niri-power-menu"
+  },
+
+  // === BUILT-IN ===
+  "clock": {
+    "interval": 30,
+    "format": "{:%a %d.%m.  %H:%M}",
+    "format-alt": "{:%A, %d. %B %Y}",
+    "tooltip-format": "<big>{:%H:%M}</big>\n<tt><small>{calendar}</small></tt>",
+    "on-click": "sleep 0.1 && zenity --calendar --text='' --title='Calendar' 2>/dev/null",
+    "on-click-right": "mode"
+  },
+
+  "mpris": {
+    "format": "♪ {title}",
+    "format-paused": "⏸ {title}",
+    "format-disconnected": "",
+    "max-length": 45,
+    "on-click": "playerctl play-pause",
+    "on-click-right": "playerctl next",
+    "on-scroll-up": "playerctl previous",
+    "on-scroll-down": "playerctl next",
+    "tooltip": true,
+    "tooltip-format": "{player} — {title}\n{album}"
+  },
+
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": "☕",
+      "deactivated": ""
+    },
+    "tooltip-format": "Idle inhibitor: {status}"
+  },
+
+  "privacy": {
+    "icon-size": 18,
+    "icon-spacing": 4,
+    "tooltip-format": "{tooltip}"
+  },
+
+  "cpu": {
+    "interval": 5,
+    "format": "cpu {usage}%",
+    "states": { "warning": 70, "critical": 90 },
+    "tooltip-format": "CPU: {usage}%"
+  },
+
+  "memory": {
+    "interval": 10,
+    "format": "mem {percentage}%",
+    "states": { "warning": 70, "critical": 90 },
+    "tooltip-format": "Memory: {percentage}%\n{used:0.1f}G / {total:0.1f}G"
+  },
+
+  "temperature": {
+    "interval": 10,
+    "hwmon-path": "/sys/class/hwmon",
+    "input-filename": "temp1_input",
+    "critical-threshold": 85,
+    "warning-threshold": 70,
+    "format": "{temperatureC}°C",
+    "tooltip-format": "{chip} — {temperatureC}°C"
+  },
+
+  "disk": {
+    "interval": 60,
+    "path": "/",
+    "format": "/ {percentage_free}% free",
+    "tooltip-format": "Root: {percentage_free}% free\n{free} / {total}"
+  },
+
+  "tray": {
+    "icon-size": 16,
+    "spacing": 8,
+    "show-passive-items": false
+  },
+
+  "backlight": {
+    "interval": 5,
+    "format": "{percent}%",
+    "format-icons": ["◑", "◐", "◓", "◒", "●"],
+    "on-scroll-up": "brightnessctl set 5%+",
+    "on-scroll-down": "brightnessctl set 5%-",
+    "on-click": "sleep 0.1 && /home/efecanaktas/.config/niri/scripts/waybar-backlight-slider.sh",
+    "tooltip-format": "Backlight: {percent}%"
+  },
+
+  "wireplumber": {
+    "interval": 2,
+    "format": "{volume}%",
+    "format-muted": "🔇",
+    "format-icons": {
+      "headphone": "🎧",
+      "default": ["🔈", "🔉", "🔊"]
+    },
+    "on-click": "sleep 0.1 && /home/efecanaktas/.config/niri/scripts/tokyo-niri-audio",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-",
+    "scroll-step": 5,
+    "max-volume": 150,
+    "tooltip-format": "{desc}: {volume}%"
+  },
+
+  "network": {
+    "interval": 10,
+    "format-wifi": "{signalStrength}% {essid}",
+    "format-ethernet": "wired",
+    "format-disconnected": "offline",
+    "tooltip-format-wifi": "{essid} ({signalStrength}%)\n{ipaddr}/{cidr}",
+    "tooltip-format-ethernet": "wired\n{ipaddr}/{cidr}",
+    "tooltip-format-disconnected": "Disconnected",
+    "on-click": "sleep 0.1 && tokyo-niri-wifi-menu"
+  },
+
+  "battery": {
+    "bat": "BAT0",
+    "interval": 30,
+    "states": { "warning": 30, "critical": 15 },
+    "format": "{capacity}%",
+    "format-charging": "⚡ {capacity}%",
+    "format-plugged": "🔌 {capacity}%",
+    "format-icons": ["", "", "", "", "", "", "", "", "", "", "▮"],
+    "tooltip-format": "{capacity}% • {power}W\n{time}",
+    "on-click": "sleep 0.1 && tokyo-niri-profile-menu"
+  },
+
+  "power-profiles-daemon": {
+    "format": "{icon}",
+    "format-icons": {
+      "default": "◈",
+      "performance": "⚡",
+      "balanced": "◈",
+      "power-saver": "❄"
+    },
+    "tooltip-format": "Power profile: {profile}",
+    "on-click": "sleep 0.1 && tokyo-niri-profile-menu"
+  }
+}
