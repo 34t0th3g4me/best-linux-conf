@@ -1,0 +1,42 @@
+/* gruvbox.css — Gruvbox Dark palette. */
+
+@define-color surface   #282828;
+@define-color surface-2 #3c3836;
+@define-color accent    #83a598;
+@define-color text      #ebdbb2;
+@define-color blue      #83a598;
+@define-color purple    #d3869b;
+@define-color green     #b8bb26;
+@define-color yellow    #fabd2f;
+@define-color red       #fb4934;
+@define-color teal      #8ec07c;
+@define-color orange    #fe8019;
+
+#niri-workspaces  { color: @blue;    padding: 0 6px; letter-spacing: 1.5px; }
+#niri-window      { color: @purple;  font-weight: 600; }
+#custom-logo      { color: @accent;  font-size: 16px; padding: 0 12px; }
+#clock            { color: @blue; }
+#mpris            { color: @green;   min-width: 80px; }
+#idle_inhibitor   { color: @yellow; }
+#idle_inhibitor.activated { color: @green; }
+#privacy          { color: @red; }
+#custom-updates   { color: @teal; }
+#custom-updates.has-updates { color: @yellow; }
+#cpu              { color: @blue; }
+#memory           { color: @purple; }
+#temperature      { color: @teal; }
+#temperature.critical { color: @red; }
+#temperature.warning  { color: @yellow; }
+#disk             { color: @teal; }
+#network          { color: @teal; }
+#network.disconnected { color: @red; }
+#wireplumber      { color: @yellow; }
+#wireplumber.muted      { color: @red; }
+#backlight        { color: @yellow; }
+#battery          { color: @green; }
+#battery.warning       { color: @yellow; }
+#battery.critical      { color: @red; }
+#power-profiles-daemon        { color: @purple; }
+#power-profiles-daemon.performance { color: @red; }
+#custom-notifications         { color: @blue; }
+#custom-notifications.dnd      { color: @red; }
