@@ -1,9 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Tokyo Night Pro - Bluetooth Device Menu
+# Hardened for waybar 2026: set -euo pipefail, fuzzel click-hijacking fix.
+set -euo pipefail
 
+command -v bluetoothctl >/dev/null 2>&1 || { notify-send "bluetooth" "bluetoothctl not installed" 2>/dev/null || true; exit 1; }
+command -v fuzzel >/dev/null 2>&1 || { notify-send "bluetooth" "fuzzel not installed" 2>/dev/null || true; exit 1; }
 # Check if bluetooth is on
 if ! bluetoothctl show 2>/dev/null | grep -q "Powered: yes"; then
-    choice=$(printf "🔵 Turn Bluetooth On" | fuzzel --dmenu --prompt "bluetooth" --width 35 --lines 1 2>/dev/null)
+    choice=$(sleep 0.1 && printf "🔵 Turn Bluetooth On" | fuzzel --dmenu --prompt "bluetooth" --width 35 --lines 1 2>/dev/null) || choice=""
     [ -n "$choice" ] && bluetoothctl power on 2>/dev/null
     exit 0
 fi
@@ -26,7 +30,7 @@ done <<< "$devices"
 
 entries+="\n❌ Turn Bluetooth Off"
 
-choice=$(printf "%b" "$entries" | fuzzel --dmenu --prompt "bluetooth" --width 45 --lines 15 2>/dev/null)
+choice=$(sleep 0.1 && printf "%b" "$entries" | fuzzel --dmenu --prompt "bluetooth" --width 45 --lines 15 2>/dev/null) || choice=""
 
 if [ -n "$choice" ]; then
     if echo "$choice" | grep -q "Turn Bluetooth Off"; then
