@@ -1,0 +1,44 @@
+/* tokyo-night.css — Tokyo Night Pro palette. */
+
+@define-color surface   #1a1b26;
+@define-color surface-2 #24283b;
+@define-color accent    #7aa2f7;
+@define-color text      #c0caf5;
+@define-color blue      #7dcfff;
+@define-color purple    #bb9af7;
+@define-color green     #9ece6a;
+@define-color yellow    #e0af68;
+@define-color red       #f7768e;
+@define-color teal      #73daca;
+@define-color orange    #ff9e64;
+
+#niri-workspaces  { color: @blue;    padding: 0 6px; letter-spacing: 1.5px; }
+#niri-window      { color: @purple;  font-weight: 600; }
+#custom-logo      { color: @accent;  font-size: 16px; padding: 0 12px; }
+#clock            { color: @blue; }
+#mpris            { color: @green;   min-width: 80px; }
+#idle_inhibitor   { color: @yellow; }
+#idle_inhibitor.activated { color: @green; }
+#privacy          { color: @red; }
+#privacy:hover    { color: @text; }
+#custom-updates   { color: @teal; }
+#custom-updates.has-updates { color: @yellow; }
+#cpu              { color: @blue; }
+#memory           { color: @purple; }
+#temperature      { color: @teal; }
+#temperature.critical { color: @red; }
+#temperature.warning  { color: @yellow; }
+#disk             { color: @surface-2; color: @teal; }
+#network          { color: @teal; }
+#network.disconnected { color: @red; }
+#wireplumber      { color: @yellow; }
+#wireplumber.muted      { color: @red; }
+#backlight        { color: @yellow; }
+#battery          { color: @green; }
+#battery.charging      { color: @green; }
+#battery.warning       { color: @yellow; }
+#battery.critical      { color: @red; }
+#power-profiles-daemon        { color: @purple; }
+#power-profiles-daemon.performance { color: @red; }
+#custom-notifications         { color: @blue; }
+#custom-notifications.dnd      { color: @red; }
