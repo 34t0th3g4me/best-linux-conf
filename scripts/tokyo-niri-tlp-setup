@@ -1,0 +1,25 @@
+#!/bin/bash
+# Tokyo Night Pro - TLP Setup Script
+# Run this once to install and configure TLP + sudoers
+set -euo pipefail
+
+echo "==> Removing conflicting tuned-ppd (provides power-profiles-daemon)..."
+sudo dnf remove -y tuned-ppd 2>/dev/null || true
+
+echo "==> Installing TLP..."
+sudo dnf install -y tlp tlp-rdw
+
+echo "==> Enabling TLP..."
+sudo systemctl enable tlp
+sudo systemctl start tlp
+
+echo "==> Configuring sudoers for passwordless CPU/power commands..."
+echo "efecanaktas ALL=(ALL) NOPASSWD: /usr/bin/cpupower, /usr/bin/tlp" | sudo tee /etc/sudoers.d/tokyo-niri-power > /dev/null
+sudo chmod 440 /etc/sudoers.d/tokyo-niri-power
+
+echo "==> Setting balanced profile..."
+~/.local/bin/tokyo-niri-tlp-profile balanced
+
+echo "==> Done! TLP installed and configured."
+echo "    Three profiles available: powersave, balanced, performance"
+echo "    Use: tokyo-niri-tlp-profile {powersave|balanced|performance}"

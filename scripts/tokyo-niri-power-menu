@@ -1,0 +1,25 @@
+#!/bin/bash
+# Tokyo Night Pro - Power Menu
+# Uses fuzzel as dmenu for power management options
+
+entries="Lock\nLogout\nSuspend\nShutdown\nReboot"
+
+choice=$(printf "%b" "$entries" | fuzzel --dmenu --prompt "power" --width 30 --lines 5 2>/dev/null)
+
+case "$choice" in
+    Lock)
+        loginctl lock-session 2>/dev/null || true
+        ;;
+    Logout)
+        niri msg action quit 2>/dev/null || true
+        ;;
+    Suspend)
+        systemctl suspend 2>/dev/null || true
+        ;;
+    Shutdown)
+        systemctl poweroff 2>/dev/null || true
+        ;;
+    Reboot)
+        systemctl reboot 2>/dev/null || true
+        ;;
+esac

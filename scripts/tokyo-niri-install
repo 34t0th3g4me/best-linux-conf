@@ -1,0 +1,435 @@
+#!/usr/bin/env bash
+# ============================================================
+# tokyo-niri-install – niri-WM für Ubuntu 24.04 LTS
+# ============================================================
+# Installiert niri + alle Abhängigkeiten für
+# ~/.config/niri/config.kdl.
+#
+# Aufruf:  bash ~/.local/bin/tokyo-niri-install
+# ============================================================
+set -euo pipefail
+
+# ── SICHERHEIT: Diese Dateien werden NIEMALS berührt ────────
+#   • ~/.ssh/*              – SSH-Keys, Config, known_hosts
+#   • ~/.gnupg/*            – GPG-Keys
+#   • ~/.aws/*              – AWS-Credentials
+#   • ~/.gitconfig          – Git-Config
+#   • ~/.config/git/*       – Git-Credentials
+#   • ~/Documents/*         – Persönliche Dateien
+#   • ~/.password-store/*   – Passwort-Store
+#
+#   Das Skript installiert/systematisiert NUR:
+#     • System-Pakete (apt/snap)
+#     • ~/.local/bin/tokyo-niri-*  (unsere Scripts)
+#     • ~/.config/environment.d/99-niri.conf
+#     • ~/.config/systemd/user/xwayland-satellite.service  (mit Guard)
+#     • /usr/local/bin/niri*  (niri Binary)
+#     • /usr/share/wayland-sessions/niri.desktop
+#     • /etc/polkit-1/rules.d/10-niri.rules
+#     • $PATH in shell config (append-only mit Guard)
+# ============================================================
+
+# ── Farben ──────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; NC='\033[0m'
+
+info()  { echo -e "${CYAN}::${NC} $*"; }
+ok()    { echo -e "${GREEN}✅${NC} $*"; }
+warn()  { echo -e "${YELLOW}⚠️ $*${NC}"; }
+err()   { echo -e "${RED}❌ $*${NC}" >&2; }
+
+# ── Prüfungen ──────────────────────────────────────────────
+if [[ $EUID -eq 0 ]]; then
+    err "Nicht als root ausführen! Das Skript verwendet sudo bei Bedarf."
+    exit 1
+fi
+
+if ! command -v apt &>/dev/null; then
+    err "Dieses Skript ist nur für Ubuntu/Debian-basierte Systeme."
+    exit 1
+fi
+
+UBUNTU_VERSION=$(lsb_release -rs 2>/dev/null || echo "unknown")
+info "Ubuntu $UBUNTU_VERSION erkannt."
+
+if ! command -v lsb_release &>/dev/null; then
+    sudo apt install -y lsb-release
+fi
+
+# ── Aufräumen bei Abbruch ──────────────────────────────────
+CLEANUP_DIRS=()
+cleanup() {
+    if [[ ${#CLEANUP_DIRS[@]} -gt 0 ]]; then
+        rm -rf "${CLEANUP_DIRS[@]}" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+
+# ── APT-Helfer (mit Wiederholung bei Netzwerk-Fehlern)──────
+apt_install() {
+    sudo apt install -y "$@" 2>/dev/null || {
+        warn "apt install fehlgeschlagen, versuche erneut …"
+        sudo apt update -y
+        sudo apt install -y "$@"
+    }
+}
+
+# ── 1) Repositories aktualisieren ──────────────────────────
+info "Aktualisiere Paketquellen …"
+sudo apt update -y
+
+if ! grep -q '^deb.*universe' /etc/apt/sources.list 2>/dev/null && \
+   ! grep -q 'universe' /etc/apt/sources.list.d/*.list 2>/dev/null; then
+    info "Aktiviere universe-Repository …"
+    sudo add-apt-repository universe -y
+    sudo apt update -y
+fi
+
+# ── 2) Build-Abhängigkeiten für niri & xwayland-satellite ──
+info "Installiere Build-Dependencies …"
+sudo apt install -y \
+    curl wget git build-essential \
+    pkg-config clang llvm ninja-build meson \
+    libudev-dev libgbm-dev libxkbcommon-dev \
+    libegl1-mesa-dev libwayland-dev libinput-dev \
+    libdbus-1-dev libsystemd-dev libseat-dev \
+    libpipewire-0.3-dev libpango1.0-dev \
+    libdisplay-info-dev libliftoff-dev \
+    libxcb1-dev libxcb-util-cursor-dev \
+    libxcb-shape0-dev libxcb-xfixes0-dev \
+    libavformat-dev libavcodec-dev libavutil-dev \
+    libswresample-dev \
+    libpixman-1-dev libcairo2-dev \
+    libgdk-pixbuf2.0-dev libglib2.0-dev \
+    libjson-c-dev libpam0g-dev \
+    liblz4-dev libzstd-dev \
+    libxt-dev libxmu-dev \
+    wayland-protocols \
+    hwdata \
+    python3-docutils
+
+# ── 3) Rust installieren ───────────────────────────────────
+if ! command -v cargo &>/dev/null; then
+    info "Installiere Rust (rustup) …"
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --default-toolchain stable --profile default
+    # shellcheck source=…
+    if [[ -f "$HOME/.cargo/env" ]]; then
+        source "$HOME/.cargo/env"
+    fi
+    ok "Rust installiert: $(rustc --version)"
+else
+    ok "Rust vorhanden: $(rustc --version)"
+fi
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# ── 4) niri bauen (v0.1.9 = kompatibel mit Ubuntu 24.04) ──
+NIRI_TAG="${NIRI_TAG:-v0.1.9}"
+NIRI_BIN="/usr/local/bin/niri"
+
+if command -v niri &>/dev/null && niri --version 2>/dev/null; then
+    ok "niri bereits installiert: $(niri --version 2>/dev/null || echo '?')"
+else
+    info "Baue niri ${NIRI_TAG} (dauert 5-10 Minuten) …"
+    BUILD_DIR=$(mktemp -d)
+    CLEANUP_DIRS+=("$BUILD_DIR")
+
+    git clone --depth 1 --branch "$NIRI_TAG" https://github.com/YaLTeR/niri.git "$BUILD_DIR" \
+        || { err "niri git clone fehlgeschlagen"; exit 1; }
+    cd "$BUILD_DIR"
+
+    cargo build --release -p niri --bin niri 2>&1 | tail -5
+    if [[ ! -f target/release/niri ]]; then
+        err "niri Build fehlgeschlagen – siehe Ausgabe oben."
+        exit 1
+    fi
+    sudo cp target/release/niri "$NIRI_BIN"
+
+    # niri-session Wrapper (wird nicht mitgeliefert)
+    sudo tee /usr/local/bin/niri-session > /dev/null <<'WRAPPER'
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+exec /usr/local/bin/niri "$@"
+WRAPPER
+    sudo chmod +x /usr/local/bin/niri-session
+
+    # Desktop-Datei für GDM/SDDM
+    sudo mkdir -p /usr/share/wayland-sessions
+    sudo tee /usr/share/wayland-sessions/niri.desktop > /dev/null <<DESKTOP
+[Desktop Entry]
+Name=Niri
+Comment=Scrollable-tiling Wayland compositor
+Exec=/usr/local/bin/niri-session
+Type=Application
+DESKTOP
+
+    ok "niri ${NIRI_TAG} → $NIRI_BIN"
+fi
+
+# ── 5) Ghostty (PPA) ───────────────────────────────────────
+if command -v ghostty &>/dev/null; then
+    ok "Ghostty installiert"
+else
+    info "Installiere Ghostty …"
+    if sudo add-apt-repository -y ppa:mkasberg/ghostty-ubuntu 2>/dev/null; then
+        sudo apt update -y
+        sudo apt install -y ghostty || {
+            warn "Ghostty-PPA fehlgeschlagen, installiere gnome-terminal als Fallback."
+            sudo apt install -y gnome-terminal
+        }
+    else
+        warn "Ghostty-PPA nicht verfügbar, installiere gnome-terminal als Fallback."
+        sudo apt install -y gnome-terminal
+    fi
+    ok "Terminal installiert"
+fi
+
+# ── 6) Wayland-Applikationen ───────────────────────────────
+info "Installiere Anwendungen …"
+apt_install fuzzel swaybg grim slurp swappy waybar mako-notifier
+apt_install brightnessctl pipewire-bin wireplumber
+apt_install nautilus keepassxc pavucontrol
+apt_install network-manager network-manager-gnome
+apt_install neovim gnome-terminal  # Fallback-Terminal
+
+# Firefox: Snap auf Ubuntu, funktioniert out-of-the-box
+if ! command -v firefox &>/dev/null; then
+    # Prüfe ob Firefox als Snap verfügbar ist
+    if command -v snap &>/dev/null; then
+        info "Firefox wird via Snap installiert (Ubuntu-Standard) …"
+        sudo snap install firefox 2>/dev/null || true
+    fi
+    # Alternativ: apt-Version (wenn verfügbar)
+    command -v firefox &>/dev/null || apt_install firefox 2>/dev/null || \
+        warn "Firefox nicht installiert – 'sudo snap install firefox' manuell."
+fi
+
+# ── 7) xwayland-satellite ──────────────────────────────────
+if ! command -v xwayland-satellite &>/dev/null; then
+    info "Installiere xwayland-satellite …"
+
+    # Fallback A: OBS-Repo (Debian 13 = Trixie, kompatibel mit Ubuntu 24.04)
+    if ! apt_install xwayland-satellite 2>/dev/null; then
+        info "  → OBS-Repo probieren …"
+        OBS_LIST="/etc/apt/sources.list.d/home:AvengeMedia:danklinux.list"
+        if [[ ! -f "$OBS_LIST" ]]; then
+            echo 'deb http://download.opensuse.org/repositories/home:/AvengeMedia:/danklinux/Debian_13/ /' \
+                | sudo tee "$OBS_LIST" > /dev/null
+            curl -fsSL https://download.opensuse.org/repositories/home:AvengeMedia:danklinux/Debian_13/Release.key \
+                | sudo gpg --batch --yes --dearmor \
+                    -o /etc/apt/trusted.gpg.d/home_AvengeMedia_danklinux.gpg 2>/dev/null \
+                || curl -fsSL https://download.opensuse.org/repositories/home:AvengeMedia:danklinux/Debian_13/Release.key \
+                | sudo tee /etc/apt/trusted.gpg.d/home_AvengeMedia_danklinux.asc > /dev/null
+            sudo apt update -y 2>/dev/null
+        fi
+        sudo apt install -y xwayland-satellite 2>/dev/null || {
+            # Fallback B: aus Source bauen
+            warn "xwayland-satellite OBS fehlgeschlagen – baue aus Source …"
+            XW_DIR=$(mktemp -d)
+            CLEANUP_DIRS+=("$XW_DIR")
+            git clone --depth 1 https://github.com/Supreeeme/xwayland-satellite.git "$XW_DIR"
+            cd "$XW_DIR"
+            cargo build --release 2>&1 | tail -3
+            if [[ -f target/release/xwayland-satellite ]]; then
+                sudo cp target/release/xwayland-satellite /usr/local/bin/
+                ok "xwayland-satellite aus Source gebaut"
+            else
+                warn "xwayland-satellite Build fehlgeschlagen – nicht kritisch, X11-Apps fehlen dann."
+            fi
+        }
+    fi
+else
+    ok "xwayland-satellite installiert"
+fi
+
+# ── 8) Startup-Skript ──────────────────────────────────────
+info "Richte Startup-Skripte ein …"
+mkdir -p "$HOME/.local/bin"
+
+STARTUP="$HOME/.local/bin/tokyo-niri-startup"
+if [[ ! -f "$STARTUP" ]]; then
+    cat > "$STARTUP" << 'SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
+# xwayland-satellite
+if command -v xwayland-satellite >/dev/null 2>&1; then
+    systemctl --user enable --now xwayland-satellite >/tmp/tokyo-xwayland.log 2>&1 || true
+fi
+
+# Hintergrund
+pkill -x swaybg 2>/dev/null || true
+tokyo-niri-wallpaper >/tmp/tokyo-wallpaper.log 2>&1 &
+
+# Notifications
+if command -v mako >/dev/null 2>&1; then
+    pkill -x mako 2>/dev/null || true
+    mako >/tmp/tokyo-mako.log 2>&1 &
+fi
+
+# Waybar
+if command -v waybar >/dev/null 2>&1; then
+    pkill -x waybar 2>/dev/null || true
+    waybar \
+        -c "$HOME/.config/waybar/config" \
+        -s "$HOME/.config/waybar/style.css" \
+        >/tmp/tokyo-waybar.log 2>&1 &
+fi
+SCRIPT
+chmod +x "$STARTUP"
+fi
+
+WALLPAPER_SCRIPT="$HOME/.local/bin/tokyo-niri-wallpaper"
+if [[ ! -f "$WALLPAPER_SCRIPT" ]]; then
+    cat > "$WALLPAPER_SCRIPT" << 'SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+WALLPAPER="$HOME/Bilder/wallpaper.jpg"
+pkill -x swaybg 2>/dev/null || true
+if [[ -n "$WALLPAPER" && -f "$WALLPAPER" ]]; then
+    exec swaybg -i "$WALLPAPER" -m fill
+fi
+exec swaybg -c "#1a1b26"
+SCRIPT
+    chmod +x "$WALLPAPER_SCRIPT"
+fi
+
+ok "Startup-Skripte in ~/.local/bin"
+
+# ── 9) User-Session-Wrapper für niri ───────────────────────
+NIRI_SESSION_WRAPPER="$HOME/.local/bin/niri-session"
+if [[ ! -f "$NIRI_SESSION_WRAPPER" ]]; then
+    cat > "$NIRI_SESSION_WRAPPER" << 'SESSION'
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+"$HOME/.local/bin/tokyo-niri-startup"
+exec /usr/local/bin/niri "$@"
+SESSION
+    chmod +x "$NIRI_SESSION_WRAPPER"
+fi
+
+# ── 10) Environment ─────────────────────────────────────────
+# fish: PATH in $fish_user_paths (persistent, via config.fish)
+FISH_CONFIG="$HOME/.config/fish/config.fish"
+if command -v fish &>/dev/null; then
+    mkdir -p "$(dirname "$FISH_CONFIG")"
+    if [[ ! -f "$FISH_CONFIG" ]]; then
+        cat > "$FISH_CONFIG" << 'FISH'
+# niri: cargo PATH (fish hat ~/.local/bin standardmäßig im PATH)
+fish_add_path "$HOME/.cargo/bin" 2>/dev/null || set -U fish_user_paths "$HOME/.cargo/bin" $fish_user_paths
+FISH
+    elif ! grep -q 'cargo/bin' "$FISH_CONFIG" 2>/dev/null; then
+        cat >> "$FISH_CONFIG" << 'FISH'
+
+# niri: cargo PATH (fish hat ~/.local/bin standardmäßig im PATH)
+fish_add_path "$HOME/.cargo/bin" 2>/dev/null || set -U fish_user_paths "$HOME/.cargo/bin" $fish_user_paths
+FISH
+    fi
+fi
+
+# bash/zsh: PATH ergänzen
+for RC in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    [[ -f "$RC" ]] || continue
+    if ! grep -q '\.cargo/bin' "$RC" 2>/dev/null; then
+        echo 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"' >> "$RC"
+    fi
+done
+
+# XDG-Umgebungsvariablen (damit niri & Co. Wayland nutzen)
+ENV_FILE="$HOME/.config/environment.d/99-niri.conf"
+mkdir -p "$(dirname "$ENV_FILE")"
+if [[ ! -f "$ENV_FILE" ]]; then
+    cat > "$ENV_FILE" << 'ENV'
+# niri Wayland-Umgebung
+XDG_SESSION_TYPE=wayland
+XDG_CURRENT_DESKTOP=niri
+XDG_SESSION_DESKTOP=niri
+GTK_USE_PORTAL=1
+NIXOS_OIZONE_ON=1
+ENV
+fi
+
+# ── 11) polkit-Regel (niri braucht DRM/logind-Zugriff) ─────
+POLKIT_FILE="/etc/polkit-1/rules.d/10-niri.rules"
+if [[ ! -f "$POLKIT_FILE" ]]; then
+    sudo mkdir -p /etc/polkit-1/rules.d
+    sudo tee "$POLKIT_FILE" > /dev/null <<'POLKIT'
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.login1.") === 0 ||
+        action.id.indexOf("org.freedesktop.systemd1.") === 0) {
+        return polkit.Result.YES;
+    }
+});
+POLKIT
+    ok "polkit-Regel angelegt"
+fi
+
+# ── 12) systemd-user-Service für xwayland-satellite ────────
+XWAYLAND_SERVICE="$HOME/.config/systemd/user/xwayland-satellite.service"
+if [[ ! -f "$XWAYLAND_SERVICE" ]]; then
+    XWAYLAND_BIN="$(command -v xwayland-satellite 2>/dev/null || echo '/usr/local/bin/xwayland-satellite')"
+    mkdir -p "$HOME/.config/systemd/user"
+    cat > "$XWAYLAND_SERVICE" << SERVICE
+[Unit]
+Description=xwayland-satellite (rootless Xwayland)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=$XWAYLAND_BIN
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
+SERVICE
+    ok "xwayland-satellite systemd-Service angelegt"
+else
+    ok "xwayland-satellite systemd-Service existiert bereits"
+fi
+
+# ── 13) Validierung ─────────────────────────────────────────
+info "Validiere Installation …"
+ERRORS=0
+
+for CMD in niri ghostty fuzzel swaybg mako waybar grim slurp brightnessctl nvim; do
+    command -v "$CMD" &>/dev/null || { err "Fehlt: $CMD"; ERRORS=$((ERRORS + 1)); }
+done
+
+for CMD in swappy keepassxc pavucontrol nautilus xwayland-satellite; do
+    command -v "$CMD" &>/dev/null || warn "Optional fehlt: $CMD"
+done
+
+if [[ ! -f "$HOME/.config/niri/config.kdl" ]]; then
+    err "~/.config/niri/config.kdl nicht gefunden!"
+    ERRORS=$((ERRORS + 1))
+fi
+
+# ── Fertig ──────────────────────────────────────────────────
+echo ""
+echo "============================================"
+if [[ $ERRORS -eq 0 ]]; then
+    echo -e "${GREEN}  ✅  Installation erfolgreich!${NC}"
+else
+    echo -e "${YELLOW}  ⚠️  $ERRORS Komponente(n) fehlen – Log prüfen.${NC}"
+fi
+echo "============================================"
+echo ""
+echo "  Start:  ~/.local/bin/niri-session"
+echo "    Oder 'Niri' im Login-Manager wählen."
+echo ""
+echo "  Mod+Return → Ghostty"
+echo "  Mod+Space  → Fuzzel"
+echo "  Mod+B      → Firefox"
+echo "  Mod+Q      → Fenster schließen"
+echo "  Mod+F      → Fullscreen"
+echo "  Mod+O      → Overview"
+echo "  PrtSc      → Screenshot (grim+slurp+swappy)"
+echo "  Mod+Shift+E → beenden"
+echo ""
+echo "  Wallpaper: ~/Bilder/wallpaper.jpg"
+echo ""

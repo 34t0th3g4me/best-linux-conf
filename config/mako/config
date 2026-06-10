@@ -1,0 +1,16 @@
+font=JetBrains Mono 11
+background-color=#1a1b26ee
+text-color=#c0caf5
+border-color=#7aa2f7
+progress-color=over #bb9af7
+border-size=2
+border-radius=14
+padding=14
+margin=16
+width=390
+height=120
+default-timeout=5500
+anchor=top-right
+icons=1
+max-icon-size=42
+layer=overlay

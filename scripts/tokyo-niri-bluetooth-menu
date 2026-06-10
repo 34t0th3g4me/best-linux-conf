@@ -1,0 +1,45 @@
+#!/bin/bash
+# Tokyo Night Pro - Bluetooth Device Menu
+
+# Check if bluetooth is on
+if ! bluetoothctl show 2>/dev/null | grep -q "Powered: yes"; then
+    choice=$(printf "🔵 Turn Bluetooth On" | fuzzel --dmenu --prompt "bluetooth" --width 35 --lines 1 2>/dev/null)
+    [ -n "$choice" ] && bluetoothctl power on 2>/dev/null
+    exit 0
+fi
+
+# Get paired devices
+devices=$(bluetoothctl devices 2>/dev/null)
+connected=$(bluetoothctl devices Connected 2>/dev/null)
+
+entries=""
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    mac=$(echo "$line" | awk '{print $2}')
+    name=$(echo "$line" | cut -d' ' -f3-)
+    if echo "$connected" | grep -q "$mac"; then
+        entries+="● $name (connected)\n"
+    else
+        entries+="○ $name\n"
+    fi
+done <<< "$devices"
+
+entries+="\n❌ Turn Bluetooth Off"
+
+choice=$(printf "%b" "$entries" | fuzzel --dmenu --prompt "bluetooth" --width 45 --lines 15 2>/dev/null)
+
+if [ -n "$choice" ]; then
+    if echo "$choice" | grep -q "Turn Bluetooth Off"; then
+        bluetoothctl power off 2>/dev/null
+    elif echo "$choice" | grep -q "● "; then
+        # Connected device - disconnect
+        name=$(echo "$choice" | sed 's/^● //;s/ (connected)//')
+        mac=$(echo "$devices" | grep "$name" | awk '{print $2}' | head -1)
+        [ -n "$mac" ] && bluetoothctl disconnect "$mac" 2>/dev/null
+    elif echo "$choice" | grep -q "○ "; then
+        # Disconnected device - connect
+        name=$(echo "$choice" | sed 's/^○ //')
+        mac=$(echo "$devices" | grep "$name" | awk '{print $2}' | head -1)
+        [ -n "$mac" ] && bluetoothctl connect "$mac" 2>/dev/null
+    fi
+fi

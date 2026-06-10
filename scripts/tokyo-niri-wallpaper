@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+WALLPAPER="/home/efecanaktas/Bilder/wallpaper.jpg"
+pkill -x swaybg 2>/dev/null || true
+if [[ -n "$WALLPAPER" && -f "$WALLPAPER" ]]; then
+  exec swaybg -i "$WALLPAPER" -m fill
+fi
+exec swaybg -c "#1a1b26"

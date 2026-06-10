@@ -1,0 +1,32 @@
+#!/bin/bash
+# Minimal audio volume control using zenity + wpctl
+
+sink="@DEFAULT_AUDIO_SINK@"
+current=$(wpctl get-volume "$sink" | awk '{printf "%.0f", $2 * 100}')
+muted=$(wpctl get-volume "$sink" | grep -c "MUTED")
+
+if [ "$muted" -gt 0 ]; then
+    status="MUTED"
+    current=0
+else
+    status=""
+fi
+
+new_vol=$(zenity --scale \
+    --title="Volume" \
+    --text="Volume${status:+ ($status)}" \
+    --value="$current" \
+    --min-value=0 \
+    --max-value=150 \
+    --step=5 \
+    --width=350 \
+    2>/dev/null)
+
+if [ -n "$new_vol" ]; then
+    wpctl set-volume "$sink" "$new_vol%"
+    if [ "$new_vol" -eq 0 ]; then
+        wpctl set-mute "$sink" 1
+    elif [ "$muted" -gt 0 ]; then
+        wpctl set-mute "$sink" 0
+    fi
+fi

@@ -1,0 +1,46 @@
+#!/bin/bash
+# Tokyo Night Pro - WiFi Network Menu
+
+# Get list of available networks
+networks=$(nmcli -t -f SSID,SECURITY,SIGNAL device wifi list 2>/dev/null | head -30)
+
+if [ -z "$networks" ]; then
+    notify-send -t 2000 "No networks found"
+    exit 1
+fi
+
+# Format for fuzzel
+formatted=""
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    IFS=':' read -r ssid security signal <<< "$line"
+    [ -z "$ssid" ] && continue
+    if [ "$security" = "--" ]; then
+        icon="○"
+    else
+        icon="●"
+    fi
+    bars=""
+    if [ "$signal" -gt 70 ]; then bars="▂▄▆█"
+    elif [ "$signal" -gt 40 ]; then bars="▂▄▆"
+    elif [ "$signal" -gt 20 ]; then bars="▂▄"
+    else bars="▂"
+    fi
+    formatted+="$icon $bars $ssid\n"
+done <<< "$networks"
+
+choice=$(printf "%b" "$formatted" | head -40 | fuzzel --dmenu --prompt "wifi" --width 50 --lines 12 2>/dev/null)
+
+if [ -n "$choice" ]; then
+    # Extract SSID (after the bars)
+    ssid=$(echo "$choice" | sed 's/^[●○] [▂▄▆█]* //')
+    if [ -n "$ssid" ]; then
+        # Check if already connected
+        if nmcli -t -f SSID connection show --active 2>/dev/null | grep -q "^${ssid}$"; then
+            notify-send -t 2000 "Already connected to $ssid"
+        else
+            notify-send -t 3000 "Connecting to $ssid..."
+            nmcli device wifi connect "$ssid" 2>/dev/null && notify-send -t 2000 "Connected to $ssid" || notify-send -t 3000 "Failed to connect"
+        fi
+    fi
+fi

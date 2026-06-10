@@ -1,0 +1,42 @@
+#!/bin/bash
+# Tokyo Night Pro - Stoic Quotes Center Module
+# Cycles through short stoic quotes every 15 seconds
+
+quotes=(
+    "☯  The obstacle is the way.  — Marcus Aurelius"
+    "☯  Void is the warrior's spirit.  — Miyamoto Musashi"
+    "☯  Mind over events.  — Marcus Aurelius"
+    "☯  Think lightly of self, deeply of world.  — Musashi"
+    "☯  Happiness needs quality thoughts.  — Marcus Aurelius"
+    "☯  Nothing external can make you better.  — Musashi"
+    "☯  Waste no time arguing. Be good.  — Marcus Aurelius"
+    "☯  See distant things, not just what is near.  — Musashi"
+    "☯  He who fears death does nothing worthy.  — Seneca"
+    "☯  Believe the impossible is possible.  — Musashi"
+    "☯  Hardship strengthens, as labor does the body.  — Seneca"
+    "☯  Do not pray for an easy life.  — Bruce Lee"
+    "☯  Know yourself and your enemy.  — Sun Tzu"
+    "☯  Daily decrease, not increase.  — Bruce Lee"
+    "☯  Subdue without fighting.  — Sun Tzu"
+    "☯  Learn the rules, then forget them.  — Bruce Lee"
+    "☯  Chaos breeds opportunity.  — Sun Tzu"
+    "☯  Luck = preparation meets opportunity.  — Seneca"
+    "☯  Better trip with feet than tongue.  — Zeno of Citium"
+    "☯  We suffer more in imagination.  — Seneca"
+    "☯  Act without expectation.  — Lao Tzu"
+    "☯  The journey is the reward.  — Lao Tzu"
+    "☯  Master yourself, master the enemy.  — Musashi"
+    "☯  True skill is invisible.  — Musashi"
+    "☯  The present is all we have.  — Marcus Aurelius"
+)
+
+max=${#quotes[@]}
+index=0
+
+while true; do
+    text="${quotes[$index]}"
+    # Escape for valid JSON (no double quotes in quotes, so this is safe)
+    printf '{"text":"%s","tooltip":"Stoic Wisdom • %s","class":"center"}\n' "$text" "$(date +%H:%M)"
+    index=$(( (index + 1) % max ))
+    sleep 15
+done

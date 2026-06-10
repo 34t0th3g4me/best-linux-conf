@@ -1,0 +1,46 @@
+#!/bin/bash
+# Tokyo Night Pro - Window Switcher Menu
+# Shows all windows grouped by workspace, click to focus
+
+entries=""
+current_ws=""
+current_id=""
+current_title=""
+current_app=""
+
+while IFS= read -r line; do
+    if [[ "$line" =~ ^Window\ ID\ ([0-9]+) ]]; then
+        # Save previous window if any
+        if [ -n "$current_id" ] && [ -n "$current_ws" ]; then
+            short="${current_title:-$current_app}"
+            [ ${#short} -gt 50 ] && short="${short:0:48}.."
+            entries+="WS${current_ws} | ${short} | id:${current_id}\n"
+        fi
+        current_id="${BASH_REMATCH[1]}"
+        current_title=""
+        current_app=""
+        current_ws=""
+    elif [[ "$line" =~ ^[[:space:]]*Title:\ (.+) ]]; then
+        current_title="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^[[:space:]]*App\ ID:\ \"(.+)\" ]]; then
+        current_app="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^[[:space:]]*Workspace\ ID:\ ([0-9]+) ]]; then
+        current_ws="${BASH_REMATCH[1]}"
+    fi
+done < <(niri msg windows 2>/dev/null)
+# Save last window
+if [ -n "$current_id" ] && [ -n "$current_ws" ]; then
+    short="${current_title:-$current_app}"
+    [ ${#short} -gt 50 ] && short="${short:0:48}.."
+    entries+="WS${current_ws} | ${short} | id:${current_id}"
+fi
+
+choice=$(printf "%b" "$entries" | fuzzel --dmenu --prompt "windows" --width 60 --lines 15 2>/dev/null)
+
+if [ -n "$choice" ]; then
+    # Extract window ID after "id:"
+    win_id=$(echo "$choice" | sed 's/.*id://')
+    if [ -n "$win_id" ]; then
+        niri msg action focus-window "$win_id" 2>/dev/null || true
+    fi
+fi

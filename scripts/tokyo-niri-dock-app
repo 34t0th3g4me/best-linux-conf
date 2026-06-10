@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+app="${1:-launcher}"
+case "$app" in
+  launcher) exec fuzzel ;;
+  terminal) exec ghostty ;;
+  browser) exec firefox ;;
+  editor)
+    if command -v zed >/dev/null 2>&1; then exec zed; fi
+    exec ghostty -e nvim ;;
+  files) exec nautilus ;;
+  passwords) exec keepassxc ;;
+  chat)
+    if command -v beeper >/dev/null 2>&1; then exec beeper; fi
+    if command -v Beeper >/dev/null 2>&1; then exec Beeper; fi
+    if compgen -G "$HOME/Applications/Beeper*.AppImage" >/dev/null; then exec "$(compgen -G "$HOME/Applications/Beeper*.AppImage" | head -n 1)"; fi
+    exec notify-send "Beeper" "Beeper was not found." ;;
+  screenshot) exec sh -c 'grim -g "$(slurp)" - | swappy -f -' ;;
+  audio) exec pavucontrol ;;
+  *) exec fuzzel ;;
+esac

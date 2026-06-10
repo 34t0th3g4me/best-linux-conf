@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$HOME/.local/bin:$PATH"
+pkill -x waybar 2>/dev/null || true
+pkill -x mako 2>/dev/null || true
+tokyo-niri-wallpaper >/tmp/tokyo-niri-wallpaper.log 2>&1 &
+if command -v mako >/dev/null 2>&1; then mako >/tmp/tokyo-niri-mako.log 2>&1 & fi
+if command -v waybar >/dev/null 2>&1; then waybar -c "$HOME/.config/waybar/config" -s "$HOME/.config/waybar/style.css" >/tmp/tokyo-niri-waybar-top.log 2>&1 & fi
+if command -v xwayland-satellite >/dev/null 2>&1; then xwayland-satellite >/tmp/tokyo-niri-xwayland.log 2>&1 & fi

@@ -1,0 +1,73 @@
+#!/bin/bash
+# Tokyo Night Pro - Workspaces with Window Numbers
+# Shows workspace pills with numbered window indicators
+
+# Circled numbers for window display
+digits=(① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩)
+
+# Get focused workspace
+focused_ws=$(niri msg workspaces 2>/dev/null | grep '\*' | awk '{print $2}')
+
+# Parse windows grouped by workspace
+declare -A ws_windows
+current_ws=""
+current_focused=false
+
+while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^Window\ ID\ ([0-9]+) ]]; then
+        if [ -n "$current_ws" ]; then
+            ws_windows["$current_ws"]+="1 "
+        fi
+        current_ws=""
+        current_focused=false
+    elif [[ "$line" =~ ^[[:space:]]*Workspace\ ID:\ ([0-9]+) ]]; then
+        current_ws="${BASH_REMATCH[1]}"
+    elif [[ "$line" == *"(focused)"* ]]; then
+        current_focused=true
+    fi
+done < <(niri msg windows 2>/dev/null)
+# Save last window if any
+if [ -n "$current_ws" ]; then
+    ws_windows["$current_ws"]+="1 "
+fi
+
+# Build display
+display=""
+
+for ws in 1 2 3 4 5; do
+    # Count windows
+    count=0
+    if [ -n "${ws_windows[$ws]}" ]; then
+        # shellcheck disable=SC2086
+        count=$(echo ${ws_windows[$ws]} | wc -w)
+    fi
+
+    is_focused=false
+    [ "$ws" = "$focused_ws" ] && is_focused=true
+
+    if [ "$count" -gt 0 ]; then
+        if [ "$count" -le 10 ]; then
+            indicators="${digits[$((count-1))]}"
+        else
+            indicators="${digits[9]}+"
+        fi
+        if $is_focused; then
+            # Focused workspace: box with count
+            display+="[${ws}:${indicators}]"
+        else
+            display+="[${ws}:${indicators}]"
+        fi
+    else
+        if $is_focused; then
+            display+="[${ws}]"
+        else
+            display+="[${ws}]"
+        fi
+    fi
+    display+=" "
+done
+
+# Trim trailing space
+display="${display% }"
+
+echo "{\"text\":\"$display\",\"tooltip\":\"Click for overview • $focused_ws focused\",\"class\":\"workspaces\"}"
