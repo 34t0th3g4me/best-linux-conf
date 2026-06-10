@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Tokyo Night Pro - WiFi Network Menu
+# Hardened for waybar 2026: set -euo pipefail, fuzzel click-hijacking fix.
+set -euo pipefail
 
 # Get list of available networks
 networks=$(nmcli -t -f SSID,SECURITY,SIGNAL device wifi list 2>/dev/null | head -30)
@@ -29,7 +31,11 @@ while IFS= read -r line; do
     formatted+="$icon $bars $ssid\n"
 done <<< "$networks"
 
-choice=$(printf "%b" "$formatted" | head -40 | fuzzel --dmenu --prompt "wifi" --width 50 --lines 12 2>/dev/null)
+# sleep 0.1 prefix mitigates waybar click-hijacking bug (issue #2166)
+choice=$(sleep 0.1 && printf "%b" "$formatted" | head -40 | fuzzel --dmenu --prompt "wifi" --width 50 --lines 12 2>/dev/null) || choice=""
+
+command -v fuzzel >/dev/null 2>&1 || { notify-send "wifi" "fuzzel not installed" 2>/dev/null || true; exit 1; }
+command -v nmcli >/dev/null 2>&1 || { notify-send "wifi" "nmcli not installed" 2>/dev/null || true; exit 1; }
 
 if [ -n "$choice" ]; then
     # Extract SSID (after the bars)
